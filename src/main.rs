@@ -44,7 +44,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get env data
     let api_key = env::var("API_KEY").expect("API_KEY does not exists!");
 
-    let url = format!("https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}");
+    // 3 modes F, C, Imperial by default the api uses F
+    let metric = env::var("METRIC").expect("No metric found using the default");
+
+    let url = format!(
+        "https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units={metric}"
+    );
 
     let client = reqwest::Client::new();
     let res = client.get(url).send().await?;
@@ -62,8 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn print_funny_weather(w: &WeatherResponse) {
-    let temp_c = w.main.temp - 273.15;
-    let feels_c = w.main.feels_like - 273.15;
+    let temp_c = w.main.temp;
+    let feels_c = w.main.feels_like;
 
     let description = w
         .weather
