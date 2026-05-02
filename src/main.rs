@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let res = client.get(url).send().await?;
     match res.status() {
         reqwest::StatusCode::OK => match &res.json::<WeatherResponse>().await {
-            Ok(parsed) => print_funny_weather(parsed),
+            Ok(parsed) => print_funny_weather(parsed, &metric),
             Err(_) => println!("Something went wrong"),
         },
         other => {
@@ -66,9 +66,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_funny_weather(w: &WeatherResponse) {
+fn print_funny_weather(w: &WeatherResponse, metric: &str) {
     let temp_c = w.main.temp;
     let feels_c = w.main.feels_like;
+    let val = match metric {
+        "standard" => "F",
+        "metric" => "C",
+        "imperial" => "IDK",
+        other => "F",
+    };
 
     let description = w
         .weather
@@ -100,8 +106,15 @@ fn print_funny_weather(w: &WeatherResponse) {
     println!("╠════════════════════════════════════════════╣");
     println!("║ City:        {:<28} ║", w.name);
     println!("║ Sky Drama:   {:<28} ║", description);
-    println!("║ Temp:        {:>6.1}°C                    ║", temp_c);
-    println!("║ Feels Like:  {:>6.1}°C                    ║", feels_c);
+    println!(
+        "║ Temp:        {:>6.1} >{}                   ║",
+        temp_c,
+        val.to_string()
+    );
+    println!(
+        "║ Feels Like:  {:>6.1}{}                    ║",
+        feels_c, val
+    );
     println!(
         "║ Humidity:    {:>6.0}%                      ║",
         w.main.humidity
