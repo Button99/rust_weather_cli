@@ -32,27 +32,32 @@ struct Wind {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Weather app in rust");
     // Get command line argument for city
     let args: Vec<String> = env::args().collect();
+    if args.len() <= 1 {
+        println!("Add city");
+    }
+
     let city = &args[1];
     dotenv().ok();
+
     // Get env data
     let api_key = env::var("API_KEY").expect("API_KEY does not exists!");
 
     let url = format!("https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}");
+
     let client = reqwest::Client::new();
     let res = client.get(url).send().await?;
-    // match res.status() {
-    //     reqwest::StatusCode::OK => {
-    //         match res>().await {
-    //             Ok(parsed) => println!("works"),
-    //             Err(_) => println!("Something went wrong"),
-    //         };
-    //     }
-    // }
-    let w: WeatherResponse = res.json().await?;
-    print_funny_weather(&w);
+    match res.status() {
+        reqwest::StatusCode::OK => match &res.json::<WeatherResponse>().await {
+            Ok(parsed) => print_funny_weather(parsed),
+            Err(_) => println!("Something went wrong"),
+        },
+        other => {
+            panic!("Other error! {:?}", other);
+        }
+    }
+
     Ok(())
 }
 
