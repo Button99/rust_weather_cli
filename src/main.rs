@@ -1,7 +1,9 @@
 use dotenv::dotenv;
 use reqwest;
-use serde::Deserialize;
+use serde::{ Deserialize, Serialize };
 use std::env;
+use std::fs::File;
+use std::io::Write;
 
 #[derive(Debug, Deserialize)]
 struct WeatherResponse {
@@ -28,6 +30,11 @@ struct Weather {
 #[derive(Debug, Deserialize)]
 struct Wind {
     speed: f64,
+}
+
+#[derive(Serialize)]
+struct CityToJson<'a> {
+    city: &'a str 
 }
 
 #[tokio::main]
@@ -62,6 +69,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("Other error! {:?}", other);
         }
     }
+    saving_city(city)?;
+    Ok(())
+}
+
+fn saving_city(city: &str) -> std::io::Result<()> {
+   let city_j = CityToJson {
+       city: city
+   };
+
+    let json_data = serde_json::to_string_pretty(&city_j).unwrap();
+    let mut file = File::create("cities.json")?;
+    file.write_all(json_data.as_bytes())?;
 
     Ok(())
 }
