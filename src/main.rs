@@ -4,6 +4,7 @@ use serde::{ Deserialize, Serialize };
 use std::env;
 use std::fs::File;
 use std::io::Write;
+use std::io;
 
 #[derive(Debug, Deserialize)]
 struct WeatherResponse {
@@ -69,7 +70,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("Other error! {:?}", other);
         }
     }
-    saving_city(city)?;
+    println!("Would you like to Save the city for future reference? (y/n)");
+    let mut input = String::new();
+ 
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => {
+            let option = input.trim().to_lowercase();
+
+            if option == "y" {
+                saving_city(city)?; 
+            }
+            else if option == "n" {
+                println!("Ok, bye!");
+            } 
+        }
+        Err(err) => println!("error: {err}"),
+    }
+
     Ok(())
 }
 
