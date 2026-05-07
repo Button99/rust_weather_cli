@@ -5,6 +5,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::io;
+use std::fs;
 
 #[derive(Debug, Deserialize)]
 struct WeatherResponse {
@@ -48,6 +49,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let city = &args[1];
     dotenv().ok();
+    if city.parse::<u8>().is_ok() {
+        let city = fs::read_to_string("cities.json")
+        .expect("Sorry, file does not exists!");
+        //TODO: Read the file and get the city
+        println!(city);
+        panic!();
+    } 
 
     // Get env data
     let api_key = env::var("API_KEY").expect("API_KEY does not exists!");
