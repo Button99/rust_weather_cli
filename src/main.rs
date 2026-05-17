@@ -1,4 +1,3 @@
-use dotenv::dotenv;
 use reqwest;
 use serde::{ Deserialize, Serialize };
 use std::env;
@@ -9,29 +8,37 @@ use std::fs;
 
 #[derive(Debug, Deserialize)]
 struct WeatherResponse {
-    weather: Vec<Weather>,
-    main: Main,
-    wind: Wind,
+    current: Current,
+    current_units: CurrentUnits,
+}
+
+#[derive(Debug, Deserialize)]
+struct Current {
+    temperature_2m: f64,
+    apparent_temperature: f64,
+    relative_humidity_2m: f64,
+    weather_code: u8,
+    wind_speed_10m: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct CurrentUnits {
+    temperature_2m: String,
+    apparent_temperature: String,
+    relative_humidity_2m: String,
+    wind_speed_10m: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeocodingResponse {
+    results: Option<Vec<Location>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Location {
     name: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct Main {
-    temp: f64,
-    feels_like: f64,
-    temp_min: f64,
-    temp_max: f64,
-    humidity: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct Weather {
-    description: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct Wind {
-    speed: f64,
+    latitude: f64,
+    longitude: f64,
 }
 
 #[derive(Serialize)]
@@ -57,23 +64,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         args[1].clone()
     };
-    dotenv().ok();
-
-    // Get env data
-    let api_key = env::var("API_KEY").expect("API_KEY does not exists!");
-
-    // 3 modes F, C, Imperial by default the api uses F
-    let metric = env::var("METRIC").expect("No metric found using the default");
-
-    let url = format!(
-        "https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units={metric}"
-    );
 
     let client = reqwest::Client::new();
+
+    let geocoding_url = format!(
+        "https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=en&format=json"
+    );
+    let geocoding_res = client.get(geocoding_url).send().await?;
+    let geocoding = geocoding_res.json::<GeocodingResponse>().await?;
+    let location = geocoding
+        .results
+        .and_then(|mut results| results.pop())
+        .expect("City was not found");
+
+    let url = format!(
+        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto",
+        location.latitude,
+        location.longitude,
+    );
+
     let res = client.get(url).send().await?;
     match res.status() {
         reqwest::StatusCode::OK => match &res.json::<WeatherResponse>().await {
-            Ok(parsed) => print_funny_weather(parsed, &metric),
+            Ok(parsed) => print_funny_weather(parsed, &location.name),
             Err(_) => println!("Something went wrong"),
         },
         other => {
@@ -119,21 +132,10 @@ fn getCityFromFile() -> String {
         fileCity.city
 }
 
-fn print_funny_weather(w: &WeatherResponse, metric: &str) {
-    let temp_c = w.main.temp;
-    let feels_c = w.main.feels_like;
-    let val = match metric {
-        "standard" => "F",
-        "metric" => "C",
-        "imperial" => "IDK",
-        other => "F",
-    };
-
-    let description = w
-        .weather
-        .get(0)
-        .map(|x| x.description.as_str())
-        .unwrap_or("mysterious sky nonsense");
+fn print_funny_weather(w: &WeatherResponse, city: &str) {
+    let temp_c = w.current.temperature_2m;
+    let feels_c = w.current.apparent_temperature;
+    let description = weather_description(w.current.weather_code);
 
     let mood = if temp_c >= 30.0 {
         "🔥 The pavement is trying to cook you."
@@ -145,9 +147,9 @@ fn print_funny_weather(w: &WeatherResponse, metric: &str) {
         "🥶 Absolutely illegal temperature."
     };
 
-    let wind_comment = if w.wind.speed < 2.0 {
+    let wind_comment = if w.current.wind_speed_10m < 2.0 {
         "air is basically buffering"
-    } else if w.wind.speed < 6.0 {
+    } else if w.current.wind_speed_10m < 6.0 {
         "gentle breeze doing side quests"
     } else {
         "wind is personally attacking your hairstyle"
@@ -157,28 +159,50 @@ fn print_funny_weather(w: &WeatherResponse, metric: &str) {
     println!("╔════════════════════════════════════════════╗");
     println!("║        🧙 WEATHER GOBLIN REPORT 🧙        ║");
     println!("╠════════════════════════════════════════════╣");
-    println!("║ City:        {:<28} ║", w.name);
+    println!("║ City:        {:<28} ║", city);
     println!("║ Sky Drama:   {:<28} ║", description);
     println!(
-        "║ Temp:        {:>6.1} >{}                   ║",
+        "║ Temp:        {:>6.1}{}                    ║",
         temp_c,
-        val.to_string()
+        w.current_units.temperature_2m
     );
     println!(
         "║ Feels Like:  {:>6.1}{}                    ║",
-        feels_c, val
+        feels_c,
+        w.current_units.apparent_temperature
     );
     println!(
-        "║ Humidity:    {:>6.0}%                      ║",
-        w.main.humidity
+        "║ Humidity:    {:>6.0}{}                      ║",
+        w.current.relative_humidity_2m,
+        w.current_units.relative_humidity_2m
     );
     println!(
-        "║ Wind:        {:>6.1} m/s                  ║",
-        w.wind.speed
+        "║ Wind:        {:>6.1}{}                  ║",
+        w.current.wind_speed_10m,
+        w.current_units.wind_speed_10m
     );
     println!("╠════════════════════════════════════════════╣");
     println!("║ {:<42} ║", mood);
     println!("║ Wind status: {:<29} ║", wind_comment);
     println!("╚════════════════════════════════════════════╝");
     println!();
+}
+
+fn weather_description(code: u8) -> &'static str {
+    match code {
+        0 => "clear sky",
+        1 | 2 | 3 => "partly cloudy",
+        45 | 48 => "fog",
+        51 | 53 | 55 => "drizzle",
+        56 | 57 => "freezing drizzle",
+        61 | 63 | 65 => "rain",
+        66 | 67 => "freezing rain",
+        71 | 73 | 75 => "snow",
+        77 => "snow grains",
+        80 | 81 | 82 => "rain showers",
+        85 | 86 => "snow showers",
+        95 => "thunderstorm",
+        96 | 99 => "thunderstorm with hail",
+        _ => "mysterious sky nonsense",
+    }
 }
