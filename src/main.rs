@@ -38,24 +38,26 @@ struct Wind {
 struct CityToJson<'a> {
     city: &'a str 
 }
+#[derive(Deserialize)]
+struct JsonToCity {
+    city: String 
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get command line argument for city
     let args: Vec<String> = env::args().collect();
     if args.len() <= 1 {
-        println!("Add city");
+        println!("You must specify a city");
+        println!("e.g. Athens");
     }
 
-    let city = &args[1];
+    let city = if args[1].parse::<u8>().is_ok() {
+        getCityFromFile()
+    } else {
+        args[1].clone()
+    };
     dotenv().ok();
-    if city.parse::<u8>().is_ok() {
-        let city = fs::read_to_string("cities.json")
-        .expect("Sorry, file does not exists!");
-        //TODO: Read the file and get the city
-        println!(city);
-        panic!();
-    } 
 
     // Get env data
     let api_key = env::var("API_KEY").expect("API_KEY does not exists!");
@@ -86,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let option = input.trim().to_lowercase();
 
             if option == "y" {
-                saving_city(city)?; 
+                saving_city(&city)?; 
             }
             else if option == "n" {
                 println!("Ok, bye!");
@@ -108,6 +110,13 @@ fn saving_city(city: &str) -> std::io::Result<()> {
     file.write_all(json_data.as_bytes())?;
 
     Ok(())
+}
+
+fn getCityFromFile() -> String {
+        let json_file = fs::read_to_string("cities.json")
+        .expect("Sorry, file does not exists!");
+        let fileCity: JsonToCity = serde_json::from_str(&json_file).expect("Error while performing this action");
+        fileCity.city
 }
 
 fn print_funny_weather(w: &WeatherResponse, metric: &str) {
