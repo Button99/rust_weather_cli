@@ -1,4 +1,4 @@
-use crate::WeatherResponse;
+use crate::model::WeatherResponse;
 
 pub fn print_funny_weather(w: &WeatherResponse, city: &str) {
     let temp_c = w.current.temperature_2m;
@@ -31,23 +31,19 @@ pub fn print_funny_weather(w: &WeatherResponse, city: &str) {
     println!("║ Sky Drama:   {:<28} ║", description);
     println!(
         "║ Temp:        {:>6.1}{}                    ║",
-        temp_c,
-        w.current_units.temperature_2m
+        temp_c, w.current_units.temperature_2m
     );
     println!(
         "║ Feels Like:  {:>6.1}{}                    ║",
-        feels_c,
-        w.current_units.apparent_temperature
+        feels_c, w.current_units.apparent_temperature
     );
     println!(
         "║ Humidity:    {:>6.0}{}                      ║",
-        w.current.relative_humidity_2m,
-        w.current_units.relative_humidity_2m
+        w.current.relative_humidity_2m, w.current_units.relative_humidity_2m
     );
     println!(
         "║ Wind:        {:>6.1}{}                  ║",
-        w.current.wind_speed_10m,
-        w.current_units.wind_speed_10m
+        w.current.wind_speed_10m, w.current_units.wind_speed_10m
     );
     println!("╠════════════════════════════════════════════╣");
     println!("║ {:<42} ║", mood);
