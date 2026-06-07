@@ -79,3 +79,148 @@ fn write_saved_cities(cities: Vec<String>) -> io::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    static STORAGE_LOCK: Mutex<()> = Mutex::new(());
+
+    struct CwdGuard {
+        _temp_dir: TempDir,
+    }
+
+    impl CwdGuard {
+        fn new() -> Self {
+            let temp_dir = TempDir::new().expect("failed to create temp dir");
+            std::env::set_current_dir(temp_dir.path()).expect("failed to change cwd");
+            CwdGuard {
+                _temp_dir: temp_dir,
+            }
+        }
+    }
+
+    #[test]
+    fn test_save_and_list_cities() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+        save_city("Copenhagen").unwrap();
+
+        let cities = saved_cities().unwrap();
+        assert_eq!(cities, vec!["Athens", "Copenhagen"]);
+    }
+
+    #[test]
+    fn test_save_duplicate_city() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+        save_city("Athens").unwrap();
+
+        let cities = saved_cities().unwrap();
+        assert_eq!(cities, vec!["Athens"]);
+    }
+
+    #[test]
+    fn test_get_city_by_number() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+        save_city("Copenhagen").unwrap();
+
+        assert_eq!(get_city_by_number(1).unwrap(), "Athens");
+        assert_eq!(get_city_by_number(2).unwrap(), "Copenhagen");
+    }
+
+    #[test]
+    fn test_get_city_by_number_zero() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        let err = get_city_by_number(0).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn test_get_city_by_number_out_of_bounds() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+
+        let err = get_city_by_number(2).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_delete_city_by_number() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+        save_city("Copenhagen").unwrap();
+        save_city("London").unwrap();
+
+        let removed = delete_city_by_number(2).unwrap();
+        assert_eq!(removed, "Copenhagen");
+
+        let cities = saved_cities().unwrap();
+        assert_eq!(cities, vec!["Athens", "London"]);
+    }
+
+    #[test]
+    fn test_delete_city_by_number_zero() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        let err = delete_city_by_number(0).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn test_delete_city_by_number_out_of_bounds() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+
+        let err = delete_city_by_number(5).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_saved_cities_empty_when_no_file() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        let err = saved_cities().unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_read_legacy_format() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        let legacy = r#"{"city": "Athens"}"#;
+        fs::write(CITIES_FILE, legacy).unwrap();
+
+        let cities = saved_cities().unwrap();
+        assert_eq!(cities, vec!["Athens"]);
+
+        save_city("Copenhagen").unwrap();
+
+        let cities = saved_cities().unwrap();
+        assert_eq!(cities, vec!["Athens", "Copenhagen"]);
+
+        let content = fs::read_to_string(CITIES_FILE).unwrap();
+        let parsed: SavedCities = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed.cities, vec!["Athens", "Copenhagen"]);
+    }
+}

@@ -70,3 +70,100 @@ pub fn weather_description(code: u8) -> &'static str {
         _ => "mysterious sky nonsense",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_weather_description_clear_sky() {
+        assert_eq!(weather_description(0), "clear sky");
+    }
+
+    #[test]
+    fn test_weather_description_partly_cloudy() {
+        for code in [1, 2, 3] {
+            assert_eq!(weather_description(code), "partly cloudy");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_fog() {
+        for code in [45, 48] {
+            assert_eq!(weather_description(code), "fog");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_drizzle() {
+        for code in [51, 53, 55] {
+            assert_eq!(weather_description(code), "drizzle");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_freezing_drizzle() {
+        for code in [56, 57] {
+            assert_eq!(weather_description(code), "freezing drizzle");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_rain() {
+        for code in [61, 63, 65] {
+            assert_eq!(weather_description(code), "rain");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_freezing_rain() {
+        for code in [66, 67] {
+            assert_eq!(weather_description(code), "freezing rain");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_snow() {
+        for code in [71, 73, 75] {
+            assert_eq!(weather_description(code), "snow");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_snow_grains() {
+        assert_eq!(weather_description(77), "snow grains");
+    }
+
+    #[test]
+    fn test_weather_description_rain_showers() {
+        for code in [80, 81, 82] {
+            assert_eq!(weather_description(code), "rain showers");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_snow_showers() {
+        for code in [85, 86] {
+            assert_eq!(weather_description(code), "snow showers");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_thunderstorm() {
+        assert_eq!(weather_description(95), "thunderstorm");
+    }
+
+    #[test]
+    fn test_weather_description_thunderstorm_with_hail() {
+        for code in [96, 99] {
+            assert_eq!(weather_description(code), "thunderstorm with hail");
+        }
+    }
+
+    #[test]
+    fn test_weather_description_unknown() {
+        for code in [4, 10, 20, 100, 255] {
+            assert_eq!(weather_description(code), "mysterious sky nonsense");
+        }
+    }
+}

@@ -1,39 +1,83 @@
-use std::env;
 use std::io;
 
+use clap::Parser;
+
+use crate::model::{Cli, Command};
 use crate::{api, display, storage};
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() <= 1 {
-        println!("You must specify a city");
-        println!("e.g. Athens");
-        println!("Or list saved cities with: ls");
-        println!("Or delete a saved city with: delete 1");
-        return Ok(());
-    }
+    let cli = Cli::parse();
 
-    if args[1] == "ls" || args[1] == "--ls" {
-        print_saved_cities()?;
-        return Ok(());
-    }
-
-    if args[1] == "delete" || args[1] == "del" || args[1] == "rm" {
-        delete_saved_city(&args)?;
-        return Ok(());
-    }
-
-    let city = if let Ok(saved_city_number) = args[1].parse::<usize>() {
-        storage::get_city_by_number(saved_city_number)?
+    let save_mode = if cli.save {
+        SaveMode::Yes
+    } else if cli.no_save {
+        SaveMode::No
     } else {
-        args[1].clone()
+        SaveMode::Ask
+    };
+
+    match cli.command {
+        Some(Command::Ls) => {
+            print_saved_cities()?;
+            return Ok(());
+        }
+        Some(Command::Delete { number }) => {
+            delete_saved_city(number)?;
+            return Ok(());
+        }
+        None => {}
+    }
+
+    let Some(city_arg) = cli.city else {
+        print_usage();
+        return Ok(());
+    };
+
+    let city = if let Ok(n) = city_arg.parse::<usize>() {
+        storage::get_city_by_number(n)?
+    } else {
+        city_arg
     };
 
     let client = reqwest::Client::new();
-    print_weather_for_city(&client, &city).await?;
-    ask_to_save_city(&city)?;
+    let location = api::fetch_location(&client, &city).await?;
+    let weather = api::fetch_weather(&client, &location).await?;
+
+    display::print_funny_weather(&weather, &location.name);
+
+    match save_mode {
+        SaveMode::Yes => storage::save_city(&location.name)?,
+        SaveMode::No => {}
+        SaveMode::Ask => ask_to_save_city(&location.name)?,
+    }
 
     Ok(())
+}
+
+fn print_usage() {
+    println!("Weather Goblina CLI");
+    println!();
+    println!("Usage:");
+    println!("  cargo run -- <city>           Get weather for a city");
+    println!("  cargo run -- <number>         Get weather for a saved city by number");
+    println!("  cargo run -- ls               List saved cities");
+    println!("  cargo run -- delete <number>  Delete a saved city");
+    println!("  cargo run -- <city> --save    Save city without prompting");
+    println!("  cargo run -- <city> --no-save  Skip save prompt");
+    println!("  cargo run -- --help           Show this help");
+    println!();
+    println!("Examples:");
+    println!("  cargo run -- Athens");
+    println!("  cargo run -- Copenhagen --save");
+    println!("  cargo run -- 1");
+    println!("  cargo run -- ls");
+    println!("  cargo run -- delete 2");
+}
+
+enum SaveMode {
+    Yes,
+    No,
+    Ask,
 }
 
 fn print_saved_cities() -> Result<(), Box<dyn std::error::Error>> {
@@ -52,34 +96,15 @@ fn print_saved_cities() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn delete_saved_city(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(city_number) = args.get(2) else {
-        println!("You must specify a saved city number to delete");
-        println!("e.g. delete 1");
-        return Ok(());
-    };
-
-    let city_number = city_number.parse::<usize>()?;
-    let removed_city = storage::delete_city_by_number(city_number)?;
+fn delete_saved_city(num: usize) -> Result<(), Box<dyn std::error::Error>> {
+    let removed_city = storage::delete_city_by_number(num)?;
     println!("Deleted saved city: {removed_city}");
 
     Ok(())
 }
 
-async fn print_weather_for_city(
-    client: &reqwest::Client,
-    city: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let location = api::fetch_location(client, city).await?;
-    let weather = api::fetch_weather(client, &location).await?;
-
-    display::print_funny_weather(&weather, &location.name);
-
-    Ok(())
-}
-
 fn ask_to_save_city(city: &str) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Would you like to Save the city for future reference? (y/n)");
+    println!("Would you like to save the city for future reference? (y/n)");
     let mut input = String::new();
 
     match io::stdin().read_line(&mut input) {
@@ -88,8 +113,6 @@ fn ask_to_save_city(city: &str) -> Result<(), Box<dyn std::error::Error>> {
 
             if option == "y" {
                 storage::save_city(city)?;
-            } else if option == "n" {
-                println!("Ok, bye!");
             }
         }
         Err(err) => println!("error: {err}"),
