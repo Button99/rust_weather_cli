@@ -83,22 +83,32 @@ fn write_saved_cities(cities: Vec<String>) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use std::sync::Mutex;
     use tempfile::TempDir;
 
     static STORAGE_LOCK: Mutex<()> = Mutex::new(());
 
     struct CwdGuard {
+        original_dir: PathBuf,
         _temp_dir: TempDir,
     }
 
     impl CwdGuard {
         fn new() -> Self {
+            let original_dir = std::env::current_dir().expect("failed to get current dir");
             let temp_dir = TempDir::new().expect("failed to create temp dir");
             std::env::set_current_dir(temp_dir.path()).expect("failed to change cwd");
             CwdGuard {
+                original_dir,
                 _temp_dir: temp_dir,
             }
+        }
+    }
+
+    impl Drop for CwdGuard {
+        fn drop(&mut self) {
+            std::env::set_current_dir(&self.original_dir).expect("failed to restore cwd");
         }
     }
 
@@ -124,6 +134,19 @@ mod tests {
 
         let cities = saved_cities().unwrap();
         assert_eq!(cities, vec!["Athens"]);
+    }
+
+    #[test]
+    fn test_save_city_writes_current_format() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        save_city("Athens").unwrap();
+
+        let content = fs::read_to_string(CITIES_FILE).unwrap();
+        let parsed: SavedCities = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed.cities, vec!["Athens"]);
+        assert!(!content.contains("\"city\""));
     }
 
     #[test]
@@ -201,6 +224,17 @@ mod tests {
 
         let err = saved_cities().unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_read_saved_cities_rejects_malformed_json() {
+        let _lock = STORAGE_LOCK.lock().unwrap();
+        let _guard = CwdGuard::new();
+
+        fs::write(CITIES_FILE, "not json").unwrap();
+
+        let err = read_saved_cities().unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Other);
     }
 
     #[test]

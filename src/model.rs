@@ -129,6 +129,54 @@ mod tests {
     }
 
     #[test]
+    fn test_cli_parses_city_arg() {
+        let cli = Cli::try_parse_from(["rust_weather_cli", "Athens"]).unwrap();
+
+        assert!(cli.command.is_none());
+        assert_eq!(cli.city.as_deref(), Some("Athens"));
+        assert!(!cli.save);
+        assert!(!cli.no_save);
+    }
+
+    #[test]
+    fn test_cli_parses_saved_city_number_as_city_arg() {
+        let cli = Cli::try_parse_from(["rust_weather_cli", "1"]).unwrap();
+
+        assert!(cli.command.is_none());
+        assert_eq!(cli.city.as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn test_cli_parses_save_flags() {
+        let save_cli = Cli::try_parse_from(["rust_weather_cli", "Athens", "--save"]).unwrap();
+        let no_save_cli = Cli::try_parse_from(["rust_weather_cli", "Athens", "--no-save"]).unwrap();
+
+        assert!(save_cli.save);
+        assert!(!save_cli.no_save);
+        assert!(!no_save_cli.save);
+        assert!(no_save_cli.no_save);
+    }
+
+    #[test]
+    fn test_cli_parses_ls_subcommand() {
+        let cli = Cli::try_parse_from(["rust_weather_cli", "ls"]).unwrap();
+
+        assert!(matches!(cli.command, Some(Command::Ls)));
+        assert!(cli.city.is_none());
+    }
+
+    #[test]
+    fn test_cli_parses_delete_subcommand() {
+        let cli = Cli::try_parse_from(["rust_weather_cli", "delete", "2"]).unwrap();
+
+        match cli.command {
+            Some(Command::Delete { number }) => assert_eq!(number, 2),
+            other => panic!("expected delete command, got {other:?}"),
+        }
+        assert!(cli.city.is_none());
+    }
+
+    #[test]
     fn test_weather_response_deserialize() {
         let json = r#"{
             "current": {

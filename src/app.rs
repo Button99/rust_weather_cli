@@ -8,13 +8,7 @@ use crate::{api, display, storage};
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    let save_mode = if cli.save {
-        SaveMode::Yes
-    } else if cli.no_save {
-        SaveMode::No
-    } else {
-        SaveMode::Ask
-    };
+    let save_mode = determine_save_mode(cli.save, cli.no_save);
 
     match cli.command {
         Some(Command::Ls) => {
@@ -74,10 +68,21 @@ fn print_usage() {
     println!("  cargo run -- delete 2");
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum SaveMode {
     Yes,
     No,
     Ask,
+}
+
+fn determine_save_mode(save: bool, no_save: bool) -> SaveMode {
+    if save {
+        SaveMode::Yes
+    } else if no_save {
+        SaveMode::No
+    } else {
+        SaveMode::Ask
+    }
 }
 
 fn print_saved_cities() -> Result<(), Box<dyn std::error::Error>> {
@@ -119,4 +124,29 @@ fn ask_to_save_city(city: &str) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_determine_save_mode_defaults_to_ask() {
+        assert_eq!(determine_save_mode(false, false), SaveMode::Ask);
+    }
+
+    #[test]
+    fn test_determine_save_mode_uses_save_flag() {
+        assert_eq!(determine_save_mode(true, false), SaveMode::Yes);
+    }
+
+    #[test]
+    fn test_determine_save_mode_uses_no_save_flag() {
+        assert_eq!(determine_save_mode(false, true), SaveMode::No);
+    }
+
+    #[test]
+    fn test_determine_save_mode_save_wins_when_both_flags_are_set() {
+        assert_eq!(determine_save_mode(true, true), SaveMode::Yes);
+    }
 }
