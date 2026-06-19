@@ -52,6 +52,22 @@ pub fn print_funny_weather(w: &WeatherResponse, city: &str) {
     println!();
 }
 
+pub fn print_compact_weather(w: &WeatherResponse, city: &str) {
+    let description = weather_description(w.current.weather_code);
+
+    println!(
+        "{city}: {temp:.1}{temp_unit}, feels {feels:.1}{feels_unit}, {description}, humidity {humidity:.0}{humidity_unit}, wind {wind:.1}{wind_unit}",
+        temp = w.current.temperature_2m,
+        temp_unit = w.current_units.temperature_2m,
+        feels = w.current.apparent_temperature,
+        feels_unit = w.current_units.apparent_temperature,
+        humidity = w.current.relative_humidity_2m,
+        humidity_unit = w.current_units.relative_humidity_2m,
+        wind = w.current.wind_speed_10m,
+        wind_unit = w.current_units.wind_speed_10m,
+    );
+}
+
 pub fn weather_description(code: u8) -> &'static str {
     match code {
         0 => "clear sky",

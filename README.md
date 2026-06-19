@@ -9,6 +9,7 @@ A small command-line weather app written in Rust. It uses the Open-Meteo geocodi
 - List saved cities
 - Use a saved city by number
 - Delete saved cities by number
+- Choose between funny and compact weather displays
 
 ## Usage
 
@@ -19,6 +20,7 @@ cargo run -- ls               List saved cities
 cargo run -- delete <number>  Delete a saved city
 cargo run -- <city> --save    Save city without prompting
 cargo run -- <city> --no-save Skip save prompt
+cargo run -- <city> --display compact
 cargo run -- --help           Show help
 ```
 
@@ -58,6 +60,16 @@ Skip the save prompt:
 
 ```bash
 cargo run -- London --no-save
+```
+
+Use the compact display:
+
+```bash
+cargo run -- Athens --display compact
+```
+
+```text
+Athens: 22.5°C, feels 20.1°C, partly cloudy, humidity 65%, wind 12.3km/h
 ```
 
 List saved cities:

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
@@ -17,12 +17,22 @@ pub struct Cli {
 
     #[arg(long)]
     pub no_save: bool,
+
+    /// Display style for weather output
+    #[arg(long, value_enum, default_value_t = DisplayMode::Funny)]
+    pub display: DisplayMode,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
     Ls,
     Delete { number: usize },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum DisplayMode {
+    Funny,
+    Compact,
 }
 
 #[derive(Debug, Deserialize)]
@@ -136,6 +146,7 @@ mod tests {
         assert_eq!(cli.city.as_deref(), Some("Athens"));
         assert!(!cli.save);
         assert!(!cli.no_save);
+        assert_eq!(cli.display, DisplayMode::Funny);
     }
 
     #[test]
@@ -155,6 +166,14 @@ mod tests {
         assert!(!save_cli.no_save);
         assert!(!no_save_cli.save);
         assert!(no_save_cli.no_save);
+    }
+
+    #[test]
+    fn test_cli_parses_compact_display() {
+        let cli =
+            Cli::try_parse_from(["rust_weather_cli", "Athens", "--display", "compact"]).unwrap();
+
+        assert_eq!(cli.display, DisplayMode::Compact);
     }
 
     #[test]

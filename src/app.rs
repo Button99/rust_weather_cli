@@ -2,7 +2,7 @@ use std::io;
 
 use clap::Parser;
 
-use crate::model::{Cli, Command};
+use crate::model::{Cli, Command, DisplayMode};
 use crate::{api, display, storage};
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,7 +37,10 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let location = api::fetch_location(&client, &city).await?;
     let weather = api::fetch_weather(&client, &location).await?;
 
-    display::print_funny_weather(&weather, &location.name);
+    match cli.display {
+        DisplayMode::Funny => display::print_funny_weather(&weather, &location.name),
+        DisplayMode::Compact => display::print_compact_weather(&weather, &location.name),
+    }
 
     match save_mode {
         SaveMode::Yes => storage::save_city(&location.name)?,
@@ -57,12 +60,14 @@ fn print_usage() {
     println!("  cargo run -- ls               List saved cities");
     println!("  cargo run -- delete <number>  Delete a saved city");
     println!("  cargo run -- <city> --save    Save city without prompting");
-    println!("  cargo run -- <city> --no-save  Skip save prompt");
+    println!("  cargo run -- <city> --no-save Skip save prompt");
+    println!("  cargo run -- <city> --display compact");
     println!("  cargo run -- --help           Show this help");
     println!();
     println!("Examples:");
     println!("  cargo run -- Athens");
     println!("  cargo run -- Copenhagen --save");
+    println!("  cargo run -- Athens --display compact");
     println!("  cargo run -- 1");
     println!("  cargo run -- ls");
     println!("  cargo run -- delete 2");
